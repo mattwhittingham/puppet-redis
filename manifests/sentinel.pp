@@ -73,9 +73,9 @@ define redis::sentinel (
   $running          = true,
   $enabled          = true,
   $manage_logrotate = true,
+  $sentinel_user = 'redis',
+  $sentinel_group = 'redis',
 ) {
-  $sentinel_user              = $::redis::install::redis_user
-  $sentinel_group             = $::redis::install::redis_group
 
   # validate parameters
   validate_absolute_path($sentinel_log_dir)
@@ -90,49 +90,28 @@ define redis::sentinel (
     validate_re($protected_mode,['^no$', '^yes$'])
   }
 
-  $redis_install_dir = $::redis::install::redis_install_dir
-  $sentinel_init_script = $::operatingsystem ? {
-    /(Debian|Ubuntu)/                                          => 'redis/etc/init.d/debian_redis-sentinel.erb',
-    /(Fedora|RedHat|CentOS|OEL|OracleLinux|Amazon|Scientific)/ => 'redis/etc/init.d/redhat_redis-sentinel.erb',
-    /(Gentoo)/                                                 => 'redis/etc/init.d/gentoo_redis-sentinel.erb',
-    default                                                    => undef,
-  }
-
   # redis conf file
   $conf_file_name = "redis-sentinel_${sentinel_name}.conf"
-  $conf_file = "/etc/${conf_file_name}"
+  $conf_file = "/etc/redis/${conf_file_name}"
   file { $conf_file:
       ensure  => file,
       content => template('redis/etc/sentinel.conf.erb'),
-      require => Class['redis::install'];
   }
 
-  # startup script
-  if ($::osfamily == 'RedHat' and versioncmp($::operatingsystemmajrelease, '7') >=0 and $::operatingsystem != 'Amazon') {
-    $service_file = "/usr/lib/systemd/system/redis-sentinel_${sentinel_name}.service"
-    exec { "systemd_service_sentinel_${sentinel_name}_preset":
-      command     => "/bin/systemctl preset redis-sentinel_${sentinel_name}.service",
-      notify      => Service["redis-sentinel_${sentinel_name}"],
-      refreshonly => true,
-    }
+  $service_file = "/usr/lib/systemd/system/redis-sentinel_${sentinel_name}.service"
+	exec { "systemd_service_sentinel_${sentinel_name}_preset":
+	command     => "/bin/systemctl preset redis-sentinel_${sentinel_name}.service",
+	notify      => Service["redis-sentinel_${sentinel_name}"],
+	refreshonly => true,
+	}
 
-    file { $service_file:
-      ensure  => file,
-      mode    => '0755',
-      content => template('redis/systemd/sentinel.service.erb'),
-      require => File[$conf_file],
-      notify  => Exec["systemd_service_sentinel_${sentinel_name}_preset"],
-    }
-  } else {
-    $service_file = "/etc/init.d/redis-sentinel_${sentinel_name}"
-    file { $service_file:
-      ensure  => file,
-      mode    => '0755',
-      content => template($sentinel_init_script),
-      require => File[$conf_file],
-      notify  => Service["redis-sentinel_${sentinel_name}"],
-    }
-  }
+	file { $service_file:
+	ensure  => file,
+	mode    => '0755',
+	content => template('redis/systemd/sentinel.service.erb'),
+	require => File[$conf_file],
+	notify  => Exec["systemd_service_sentinel_${sentinel_name}_preset"],
+	}
 
   # manage sentinel service
   service { "redis-sentinel_${sentinel_name}":
@@ -154,7 +133,7 @@ define redis::sentinel (
       content => template('redis/sentinel_logrotate.conf.erb'),
       require => [
         Package['logrotate'],
-        File["/etc/redis-sentinel_${sentinel_name}.conf"],
+        File["/etc/redis/redis-sentinel_${sentinel_name}.conf"],
       ]
     }
   }

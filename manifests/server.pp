@@ -171,51 +171,20 @@ define redis::server (
   $cluster_require_full_coverage = true,
   $protected_mode                = undef,
   $include                       = [],
+  $redis_user                    = "redis",
+  $redis_group                   = "redis",
 ) {
-  $redis_user              = $::redis::install::redis_user
-  $redis_group             = $::redis::install::redis_group
-
-  $redis_install_dir = $::redis::install::redis_install_dir
-  $redis_init_script = $::operatingsystem ? {
-    /(Debian|Ubuntu)/                                          => 'redis/etc/init.d/debian_redis-server.erb',
-    /(Fedora|RedHat|CentOS|OEL|OracleLinux|Amazon|Scientific)/ => 'redis/etc/init.d/redhat_redis-server.erb',
-    /(SLES)/                                                   => 'redis/etc/init.d/sles_redis-server.erb',
-    /(Gentoo)/                                                 => 'redis/etc/init.d/gentoo_redis-server.erb',
-    default                                                    => undef,
-  }
-  $redis_2_6_or_greater = versioncmp($::redis::install::redis_version,'2.6') >= 0
-  $redis_with_cluster_support = versioncmp($::redis::install::redis_version,'3.0') >= 0
 
   # redis conf file
   $conf_file_name = "redis_${redis_name}.conf"
-  $conf_file = "/etc/${conf_file_name}"
+  $conf_file = "/etc/redis/${conf_file_name}"
   file { $conf_file:
     ensure  => file,
     content => template('redis/etc/redis.conf.erb'),
     require => Class['redis::install'];
   }
 
-  # startup script
-  case $::operatingsystem {
-    'Fedora', 'RedHat', 'CentOS', 'OEL', 'OracleLinux', 'Amazon', 'Scientific': {
-      $service_file = "/usr/lib/systemd/system/redis-server_${redis_name}.service"
-      if versioncmp($::operatingsystemmajrelease, '7') > 0 { $has_systemd = true }
-    }
-    'Debian': {
-      $service_file = "/etc/systemd/system/redis-server_${redis_name}.service"
-      if versioncmp($::operatingsystemmajrelease, '8') > 0 { $has_systemd = true }
-    }
-    'Ubuntu': {
-      $service_file = "/etc/systemd/system/redis-server_${redis_name}.service"
-      if versioncmp($::operatingsystemmajrelease, '14.04') > 0 { $has_systemd = true }
-    }
-    default:  {
-      $service_file = "/etc/init.d/redis-server_${redis_name}"
-      $has_systemd = false
-    }
-  }
 
-  if $has_systemd {
     exec { "systemd_service_server_${redis_name}_preset":
       command     => "/bin/systemctl preset redis-server_${redis_name}.service",
       notify      => Service["redis-server_${redis_name}"],
@@ -232,18 +201,6 @@ define redis::server (
       ],
       notify  => Exec["systemd_service_server_${redis_name}_preset"],
     }
-  } else {
-    file { $service_file:
-      ensure  => file,
-      mode    => '0755',
-      content => template($redis_init_script),
-      require => [
-        File[$conf_file],
-        File["${redis_dir}/redis_${redis_name}"]
-      ],
-      notify  => Service["redis-server_${redis_name}"],
-    }
-  }
 
   # path for persistent data
   # If we specify a directory that's not default we need to pass it as hash
