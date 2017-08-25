@@ -1,4 +1,4 @@
-# == Function: redis::server
+# == Function: ubuntu_redis::server
 #
 # Function to configure an redis server.
 #
@@ -121,7 +121,7 @@
 # [*include*]
 #   Array of extra configs to include Example: [ '/etc/redis/local.conf' ]
 
-define redis::server (
+define ubuntu_redis::server (
   $redis_name                    = $name,
   $redis_memory                  = '100mb',
   $redis_ip                      = '127.0.0.1',

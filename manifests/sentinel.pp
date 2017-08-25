@@ -1,4 +1,4 @@
-# == Defined Type: redis::sentinel
+# == Defined Type: ubuntu_redis::sentinel
 # Function to configure an redis sentinel server.
 #
 # === Parameters
@@ -47,7 +47,7 @@
 #   to this directory and than sentinel will start with this copy.
 # [*manage_logrotate*]
 #   Configure logrotate rules for redis sentinel. Default: true
-define redis::sentinel (
+define ubuntu_redis::sentinel (
   $ensure           = 'present',
   $sentinel_name    = $name,
   $sentinel_ip      = undef,
